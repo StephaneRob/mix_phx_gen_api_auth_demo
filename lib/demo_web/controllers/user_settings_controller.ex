@@ -3,12 +3,9 @@ defmodule DemoWeb.UserSettingsController do
 
   alias Demo.Accounts
   alias DemoWeb.UserAuth
+  alias DemoWeb.FrontRouter
 
   plug :assign_email_and_password_changesets
-
-  def edit(conn, _params) do
-    render(conn, "edit.html")
-  end
 
   def update_email(conn, %{"current_password" => password, "user" => user_params}) do
     user = conn.assigns.current_user
@@ -18,18 +15,16 @@ defmodule DemoWeb.UserSettingsController do
         Accounts.deliver_update_email_instructions(
           applied_user,
           user.email,
-          &Routes.user_settings_url(conn, :confirm_email, &1)
+          &FrontRouter.user_settings_url(&1)
         )
 
         conn
-        |> put_flash(
-          :info,
-          "A link to confirm your e-mail change has been sent to the new address."
-        )
-        |> redirect(to: Routes.user_settings_path(conn, :edit))
+        |> render("update_email.json", user: applied_user)
 
       {:error, changeset} ->
-        render(conn, "edit.html", email_changeset: changeset)
+        conn
+        |> put_status(:unprocessable_entity)
+        |> render("update_email.json", email_changeset: changeset)
     end
   end
 
@@ -37,13 +32,11 @@ defmodule DemoWeb.UserSettingsController do
     case Accounts.update_user_email(conn.assigns.current_user, token) do
       :ok ->
         conn
-        |> put_flash(:info, "E-mail changed successfully.")
-        |> redirect(to: Routes.user_settings_path(conn, :edit))
+        |> render("confirm_email.json")
 
       :error ->
         conn
-        |> put_flash(:error, "Email change link is invalid or it has expired.")
-        |> redirect(to: Routes.user_settings_path(conn, :edit))
+        |> render("confirm_email.json", error: "Email change link is invalid or it has expired.")
     end
   end
 
@@ -52,13 +45,17 @@ defmodule DemoWeb.UserSettingsController do
 
     case Accounts.update_user_password(user, password, user_params) do
       {:ok, user} ->
+        {conn, token} =
+          conn
+          |> UserAuth.login_user(user)
+
         conn
-        |> put_flash(:info, "Password updated successfully.")
-        |> put_session(:user_return_to, Routes.user_settings_path(conn, :edit))
-        |> UserAuth.login_user(user)
+        |> render("update_password.json", user: user, token: token)
 
       {:error, changeset} ->
-        render(conn, "edit.html", password_changeset: changeset)
+        conn
+        |> put_status(:unprocessable_entity)
+        |> render("update_password.json", password_changeset: changeset)
     end
   end
 

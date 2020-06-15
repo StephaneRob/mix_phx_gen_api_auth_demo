@@ -63,7 +63,6 @@ defmodule DemoWeb.ConnCase do
     token = Demo.Accounts.generate_user_session_token(user)
 
     conn
-    |> Phoenix.ConnTest.init_test_session(%{})
-    |> Plug.Conn.put_session(:user_token, token)
+    |> Plug.Conn.put_req_header("authorization", "Bearer #{Base.url_encode64(token)}")
   end
 end

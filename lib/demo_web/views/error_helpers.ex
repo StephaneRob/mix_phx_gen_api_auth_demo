@@ -44,4 +44,10 @@ defmodule DemoWeb.ErrorHelpers do
       Gettext.dgettext(DemoWeb.Gettext, "errors", msg, opts)
     end
   end
+
+  def error_codes(changeset) do
+    Ecto.Changeset.traverse_errors(changeset, fn error ->
+      translate_error(error)
+    end)
+  end
 end
