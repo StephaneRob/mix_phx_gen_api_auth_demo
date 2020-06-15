@@ -83,19 +83,6 @@ defmodule DemoWeb.UserAuth do
   end
 
   @doc """
-  Used for routes that require the user to not be authenticated.
-  """
-  def redirect_if_user_is_authenticated(conn, _opts) do
-    if conn.assigns[:current_user] do
-      conn
-      |> redirect(to: signed_in_path(conn))
-      |> halt()
-    else
-      conn
-    end
-  end
-
-  @doc """
   Used for routes that require the user to be authenticated.
 
   If you want to enforce the user e-mail is confirmed before
@@ -114,8 +101,6 @@ defmodule DemoWeb.UserAuth do
       |> halt()
     end
   end
-
-  defp signed_in_path(_conn), do: "/"
 
   def require_guest(conn, _) do
     if conn.assigns[:current_user] do
