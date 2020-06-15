@@ -4,23 +4,33 @@ defmodule DemoWeb.UserSessionController do
   alias Demo.Accounts
   alias DemoWeb.UserAuth
 
-  def new(conn, _params) do
-    render(conn, "new.html", error_message: nil)
+  def me(conn, _) do
+    if conn.assigns[:current_user] do
+      conn
+      |> render("new.json", user: conn.assigns[:current_user], token: conn.private[:user_token])
+    else
+      conn
+      |> render("new.json")
+    end
   end
 
   def create(conn, %{"user" => user_params}) do
     %{"email" => email, "password" => password} = user_params
 
     if user = Accounts.get_user_by_email_and_password(email, password) do
-      UserAuth.login_user(conn, user, user_params)
+      {conn, token} = UserAuth.login_user(conn, user, user_params)
+
+      conn
+      |> put_status(:created)
+      |> render("new.json", user: user, token: token)
     else
-      render(conn, "new.html", error_message: "Invalid e-mail or password")
+      render(conn, "new.json", error_message: "Invalid e-mail or password")
     end
   end
 
   def delete(conn, _params) do
     conn
-    |> put_flash(:info, "Logged out successfully.")
     |> UserAuth.logout_user()
+    |> render("delete.json")
   end
 end

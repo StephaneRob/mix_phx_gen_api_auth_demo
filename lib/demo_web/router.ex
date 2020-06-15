@@ -14,12 +14,7 @@ defmodule DemoWeb.Router do
 
   pipeline :api do
     plug :accepts, ["json"]
-  end
-
-  scope "/", DemoWeb do
-    pipe_through :browser
-
-    get "/", PageController, :index
+    plug :fetch_current_user
   end
 
   # Other scopes may use custom stacks.
@@ -45,34 +40,29 @@ defmodule DemoWeb.Router do
 
   ## Authentication routes
 
-  scope "/", DemoWeb do
-    pipe_through [:browser, :redirect_if_user_is_authenticated]
+  scope "/api", DemoWeb do
+    pipe_through :api
 
-    get "/users/register", UserRegistrationController, :new
-    post "/users/register", UserRegistrationController, :create
-    get "/users/login", UserSessionController, :new
+    get "/users/me", UserSessionController, :me
+    delete "/users/logout", UserSessionController, :delete
+    post "/users/confirm", UserConfirmationController, :create
+    get "/users/confirm/:token", UserConfirmationController, :confirm
+  end
+
+  scope "/api", DemoWeb do
+    pipe_through [:api, :require_guest]
+
     post "/users/login", UserSessionController, :create
-    get "/users/reset_password", UserResetPasswordController, :new
+    post "/users/register", UserRegistrationController, :create
     post "/users/reset_password", UserResetPasswordController, :create
-    get "/users/reset_password/:token", UserResetPasswordController, :edit
     put "/users/reset_password/:token", UserResetPasswordController, :update
   end
 
-  scope "/", DemoWeb do
-    pipe_through [:browser, :require_authenticated_user]
+  scope "/api", DemoWeb do
+    pipe_through [:api, :require_authenticated_user]
 
-    get "/users/settings", UserSettingsController, :edit
     put "/users/settings/update_password", UserSettingsController, :update_password
     put "/users/settings/update_email", UserSettingsController, :update_email
     get "/users/settings/confirm_email/:token", UserSettingsController, :confirm_email
-  end
-
-  scope "/", DemoWeb do
-    pipe_through [:browser]
-
-    delete "/users/logout", UserSessionController, :delete
-    get "/users/confirm", UserConfirmationController, :new
-    post "/users/confirm", UserConfirmationController, :create
-    get "/users/confirm/:token", UserConfirmationController, :confirm
   end
 end

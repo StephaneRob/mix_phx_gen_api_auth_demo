@@ -7,18 +7,18 @@ defmodule DemoWeb.UserSessionControllerTest do
     %{user: user_fixture()}
   end
 
-  describe "GET /users/login" do
-    test "renders login page", %{conn: conn} do
-      conn = get(conn, Routes.user_session_path(conn, :new))
-      response = html_response(conn, 200)
-      assert response =~ "<h1>Login</h1>"
-      assert response =~ "Login</a>"
-      assert response =~ "Register</a>"
+  describe "GET /users/me" do
+    test "resend the token back if refresh cookie", %{conn: conn, user: user} do
+      conn = conn |> login_user(user) |> get(Routes.user_session_path(conn, :me))
+      assert response = json_response(conn, 200)
+      assert response["user"]["email"]
+      assert response["token"]
     end
 
-    test "redirects if already logged in", %{conn: conn, user: user} do
-      conn = conn |> login_user(user) |> get(Routes.user_session_path(conn, :new))
-      assert redirected_to(conn) == "/"
+    test "empty response if no user", %{conn: conn} do
+      conn = get(conn, Routes.user_session_path(conn, :me))
+      assert response = json_response(conn, 200)
+      assert response == %{}
     end
   end
 
@@ -29,15 +29,11 @@ defmodule DemoWeb.UserSessionControllerTest do
           "user" => %{"email" => user.email, "password" => valid_user_password()}
         })
 
-      assert get_session(conn, :user_token)
-      assert redirected_to(conn) =~ "/"
-
-      # Now do a logged in request and assert on the menu
-      conn = get(conn, "/")
-      response = html_response(conn, 200)
-      assert response =~ user.email
-      assert response =~ "Settings</a>"
-      assert response =~ "Logout</a>"
+      assert response = json_response(conn, 201)
+      assert response["user"]["email"]
+      assert response["token"]
+      assert conn.resp_cookies["user_remember_me"]
+      refute conn.resp_cookies["user_remember_me"][:max_age]
     end
 
     test "logs the user in with remember me", %{conn: conn, user: user} do
@@ -51,7 +47,7 @@ defmodule DemoWeb.UserSessionControllerTest do
         })
 
       assert conn.resp_cookies["user_remember_me"]
-      assert redirected_to(conn) =~ "/"
+      assert conn.resp_cookies["user_remember_me"][:max_age] == 5_184_000
     end
 
     test "emits error message with invalid credentials", %{conn: conn, user: user} do
@@ -60,25 +56,22 @@ defmodule DemoWeb.UserSessionControllerTest do
           "user" => %{"email" => user.email, "password" => "invalid_password"}
         })
 
-      response = html_response(conn, 200)
-      assert response =~ "<h1>Login</h1>"
-      assert response =~ "Invalid e-mail or password"
+      response = json_response(conn, 200)
+      assert response["error"] == "Invalid e-mail or password"
     end
   end
 
   describe "DELETE /users/logout" do
     test "logs the user out", %{conn: conn, user: user} do
       conn = conn |> login_user(user) |> delete(Routes.user_session_path(conn, :delete))
-      assert redirected_to(conn) == "/"
-      refute get_session(conn, :user_token)
-      assert get_flash(conn, :info) =~ "Logged out successfully"
+      assert response = json_response(conn, 200)
+      assert response["message"] =~ "Logged out successfully"
     end
 
     test "succeeds even if the user is not logged in", %{conn: conn} do
       conn = delete(conn, Routes.user_session_path(conn, :delete))
-      assert redirected_to(conn) == "/"
-      refute get_session(conn, :user_token)
-      assert get_flash(conn, :info) =~ "Logged out successfully"
+      assert response = json_response(conn, 200)
+      assert response["message"] =~ "Logged out successfully"
     end
   end
 end
